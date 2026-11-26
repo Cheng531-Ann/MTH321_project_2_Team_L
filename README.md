@@ -21,8 +21,9 @@ The spatial operator uses exponential fitting (the Scharfetter--Gummel
 scheme). Its off-diagonals are non-positive and its diagonal is positive at
 every cell Peclet number, so the discrete operator is an M-matrix without a
 limiter or start-up correction. The LCP is solved by policy iteration with
-sparse direct linear solves, starting from `V = psi` and stopping when
-`max|dV| < 1e-12` with a stable active set.
+sparse direct linear solves, starting from `V = psi` and stopping when the
+componentwise complementarity residual is below `5e-10` with a stable active
+set. The iterate change is retained only as a diagnostic.
 
 Both production stages use the truncation boundary condition
 `V(S_max) = 0`. The constant-volatility convergence study uses
@@ -94,22 +95,25 @@ the continuous boundary on a coarse mesh; this is reported explicitly.
 | --- | --- |
 | `experiment_central_diff.py` | Demonstrates that central drift differencing breaks the M-matrix property and introduces spurious near-origin behavior. |
 | `experiment_smax.py` | Studies domain truncation at fixed mesh spacing for `S_max/K` from 3 upward. |
-| `experiment_solvers.py` | Benchmarks policy iteration against PSOR in iteration count and CPU time on the same fitted LCP, then runs a four-tolerance PSOR sweep against the direct solution and writes `tolerance_sweep.csv`. PSOR stops on the componentwise LCP residual, not an iterate-difference test. |
+| `experiment_solvers.py` | Benchmarks policy iteration against PSOR on the same fitted LCP, writes the single `solver_comparison.csv` record shared by the report table and figure, then runs a four-tolerance PSOR sweep against the direct solution and writes `tolerance_sweep.csv`. Both solvers stop on the componentwise LCP residual. |
 | `experiment_verification.py` | Checks LCP residuals, complementarity, monotonicity, convexity, option bounds, and contact-set contiguity. |
 | `experiment_convergence.py` | Recomputes the aligned-grid constant-volatility convergence table plus production contact brackets and writes `stage1_convergence.csv`. |
 | `stage2_convergence_report.py` | Recomputes the four-mesh local-volatility study against the independent ODE reference and writes `stage2_convergence.csv`. |
 | `stage2d_spread.py` | Solves a controlled `rho = 0` American spread-put LCP on three two-dimensional meshes, checks the five-point M-matrix and complementarity residual, performs a domain-truncation check, and writes the 2D plot and CSV tables. |
+| `stage2d_nine_point.py` | Quantifies the positivity obstruction for a correlated nine-point spread-put stencil: it checks the sufficient M-matrix condition and counts positive off-diagonal entries for `rho = 0.1, 0.3`. |
 | `advanced_methods.py` | Runs adaptive-grid, Robin-closure, multi-point boundary-extraction, and adjoint-sensitivity experiments and writes `advanced_methods.png` and `adaptive_convergence.csv`. |
+| `local_vol_adjoint.py` | Extends the discrete adjoint to the local-volatility profile, validates it against direct finite differences, and writes `local_vol_adjoint.png` and `local_vol_adjoint.csv`. |
 
 ### Plotting Scripts
 
 | File | Description |
 | --- | --- |
 | `plot_lcp_verification.py` | Plots obstacle slackness and the LCP residual across the exercise and continuation regions. |
-| `plot_solver_comparison.py` | Produces log-scale iteration-count and CPU-time comparisons from `experiment_solvers.benchmark()`. |
+| `plot_solver_comparison.py` | Produces log-scale iteration-count and CPU-time comparisons from `solver_comparison.csv`, so the figure and report table use the same benchmark record. |
 | `plot_smax_study.py` | Plots `V(100)` against `S_max` using the fixed-`h` sweep from `experiment_smax.sweep()`. |
-| `plot_greeks.py` | Computes Delta and Gamma for the local-volatility solution and marks the computed free-boundary bracket. |
+| `plot_greeks.py` | Computes Delta and Gamma for the local-volatility solution, writes `gamma_peak.csv` for the four-mesh peak study, and marks the computed free-boundary bracket. |
 | `plot_matrix_spy.py` | Builds the fitted and central-difference sparse matrices and saves their spy plots, highlighting positive central-difference off-diagonals in red. |
+| `plot_error_budget.py` | Builds the signed value-error budget at the production local-volatility mesh from `stage2_convergence.csv` and writes `error_budget.png` and `error_budget.csv`. |
 
 ## Generated Figures
 
@@ -122,11 +126,13 @@ the continuous boundary on a coarse mesh; this is reported explicitly.
 | `solver_comparison.png` | Iteration-count and CPU-time comparison between policy iteration and PSOR. |
 | `smax_study.png` | Fixed-`h` domain-truncation study for `V(100)`. |
 | `greeks.png` | Delta and Gamma for the local-volatility solution around the free boundary. |
-| `advanced_methods.png` | Adaptive-grid refinement, Robin closure, boundary extraction, and adjoint sensitivities. |
+| `advanced_methods.png` | Three-panel adaptive-grid, value-error, and Robin-closure summary. |
+| `local_vol_adjoint.png` | Local-volatility sensitivity profiles and the adjoint-versus-finite-difference check. |
+| `error_budget.png` | Signed spatial, far-field-truncation, and combined errors in `V(100)` at `N = 2400`; the partial cancellation is visible directly. |
 | `matrix_spy_fitted.png` | Sparsity pattern of the fitted operator on a `100 x 100` illustrative grid. |
 | `matrix_spy_central.png` | Sparsity pattern of the central-difference operator with positive off-diagonals highlighted in red. |
 | `matrix_spy_fitted_n400.png` | Tridiagonal sparsity pattern of the assembled fitted matrix at `N = 400`. |
-| `spread2d_plot.png` | Fitted value surface and exercise/contact set for the controlled American spread-put LCP on a `321 x 321` grid. |
+| `spread2d_plot.png` | Fitted value map with the free boundary and exercise/contact set for the controlled American spread-put LCP on a `321 x 321` grid. |
 
 ## Generated Numerical Tables
 
@@ -135,17 +141,26 @@ the continuous boundary on a coarse mesh; this is reported explicitly.
 | `stage1_convergence.csv` | Aligned-grid constant-volatility errors, ratios, observed orders, LCP residuals, and production contact brackets. |
 | `stage2_convergence.csv` | Production and aligned local-volatility errors, observed orders, production brackets, free-boundary locations, and ODE-reference metadata. |
 | `adaptive_convergence.csv` | Uniform versus boundary-aligned clustered errors, ratios, orders, and clustering gains. |
+| `local_vol_adjoint.csv` | Local-volatility adjoint and direct finite-difference sensitivities at six target prices for the volatility scale, `r`, and `q`. |
+| `error_budget.csv` | Signed spatial-discretisation, far-field-truncation, and combined value errors for the local-volatility production mesh. |
 | `tolerance_sweep.csv` | Representative-mesh PSOR tolerance sweep with `V(100)`, free-boundary estimate, raw and scaled residuals, and differences from the direct solve. |
+| `solver_comparison.csv` | One matched policy-iteration versus PSOR benchmark record used by both the table and the figure. |
+| `gamma_peak.csv` | Four-mesh local-volatility Delta and Gamma diagnostics, including the mesh-dependent Gamma peak height. |
 | `spread2d_results.csv` | Three-mesh 2D spread-put iteration counts, wall times, pricing-window errors, LCP residuals, and M-matrix diagnostics. |
 | `spread2d_domain.csv` | Fixed-mesh `L = 240, 300, 400` domain-truncation check at `(S1,S2) = (100,50)`. |
+| `spread2d_nine_point.csv` | Correlated nine-point positivity diagnostics: monotone fraction over all/free/active nodes, minimum margin, and positive off-diagonal count. |
 
 ## How to Run
 
-From the project directory, reproduce every experiment and figure with:
+From `Final_Submission/`, reproduce every experiment and figure with:
 
 ```bash
-python run_all.py
+python 02_Code/run_all.py
 ```
+
+Equivalently, run `python run_all.py` from inside `02_Code/`.
+After a successful run, figures and numerical tables are copied to
+`03_Figures/` and `04_Data/` so the report always uses the same record.
 
 The runner uses Matplotlib's noninteractive `Agg` backend so figures are saved
 without blocking the sequence. To display an individual figure window, run its
@@ -165,5 +180,5 @@ python plot_greeks.py
 Install the dependencies with:
 
 ```bash
-python -m pip install numpy scipy matplotlib
+python -m pip install -r requirements.txt
 ```

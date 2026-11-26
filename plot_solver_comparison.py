@@ -2,14 +2,34 @@
 
 from __future__ import annotations
 
+import csv
+
 import matplotlib.pyplot as plt
 import numpy as np
 
-from experiment_solvers import benchmark
+from experiment_solvers import SOLVER_CSV, benchmark, write_solver_comparison
+
+
+def load_benchmark() -> dict[str, float | int]:
+    """Load the same benchmark record that supplies the report table."""
+    if not SOLVER_CSV.exists():
+        data = benchmark()
+        write_solver_comparison(data)
+
+    with SOLVER_CSV.open(newline="", encoding="utf-8") as handle:
+        row = next(csv.DictReader(handle))
+
+    return {
+        "N": int(row["N"]),
+        "policy_iterations": int(row["policy_iterations"]),
+        "policy_time": float(row["policy_time"]),
+        "psor_iterations": int(row["psor_iterations"]),
+        "psor_time": float(row["psor_time"]),
+    }
 
 
 def main() -> None:
-    data = benchmark()
+    data = load_benchmark()
     solvers = ("Policy Iteration", "PSOR")
     iterations = np.array(
         [data["policy_iterations"], data["psor_iterations"]],

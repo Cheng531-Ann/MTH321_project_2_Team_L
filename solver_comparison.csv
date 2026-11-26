@@ -1,0 +1,2 @@
+N,policy_iterations,policy_time,policy_update,policy_lcp_residual,psor_iterations,psor_time,psor_update,psor_lcp_residual,solution_difference
+400,301,4.638433456e-02,0.000000000e+00,9.094947018e-13,96600,1.956933570e+01,1.283417816e-13,9.913492249e-11,5.684959170e-10

@@ -275,6 +275,7 @@ def build_spread_operator(
 def solve_spread_lcp(
     N: int,
     tol: float = 1e-12,
+    lcp_tol: float = 5e-10,
     max_iter: int = 300,
     **kwargs: float,
 ) -> Spread2DResult:
@@ -311,12 +312,22 @@ def solve_spread_lcp(
         V_int = np.maximum(V_new, op.psi_int.ravel())
 
         delta = float(np.max(np.abs(V_int - V_old)))
-        if delta < tol and policy_stable:
+        full_residual = op.A @ V_int - op.rhs
+        slack_now = V_int - op.psi_int.ravel()
+        complementarity_now = float(
+            np.max(np.abs(np.minimum(full_residual, slack_now)))
+        )
+        if (
+            delta < tol
+            and complementarity_now < lcp_tol
+            and policy_stable
+        ):
             break
     else:
         raise RuntimeError(
             f"2D policy iteration did not converge in {max_iter} iterations "
-            f"(last change={delta:.3e})"
+            f"(last change={delta:.3e}, "
+            f"LCP residual={complementarity_now:.3e})"
         )
 
     residual = op.A @ V_int - op.rhs
@@ -469,24 +480,32 @@ def _plot_result(result: Spread2DResult, path: Path) -> None:
     payoff = np.maximum(K - X + Y, 0.0)
     contact = Z - payoff <= SLACK_TOL_FACTOR * max(1.0, K)
 
-    fig = plt.figure(figsize=(13.2, 5.2))
-    ax_surface = fig.add_subplot(1, 2, 1, projection="3d")
-    ax_surface.plot_surface(
+    fig, (ax_value, ax_contact) = plt.subplots(
+        1,
+        2,
+        figsize=(12.8, 5.0),
+    )
+    value_plot = ax_value.pcolormesh(
         X,
         Y,
         Z,
+        shading="auto",
         cmap="viridis",
-        linewidth=0.0,
-        antialiased=True,
-        rstride=2,
-        cstride=2,
     )
-    ax_surface.set_xlabel(r"$S_1$")
-    ax_surface.set_ylabel(r"$S_2$")
-    ax_surface.set_zlabel(r"$V_h(S_1,S_2)$")
-    ax_surface.set_title("Fitted LCP value surface")
+    ax_value.contour(
+        X,
+        Y,
+        Z - payoff,
+        levels=[0.0],
+        colors="black",
+        linewidths=0.9,
+    )
+    fig.colorbar(value_plot, ax=ax_value, label=r"$V_h(S_1,S_2)$")
+    ax_value.set_xlabel(r"$S_1$")
+    ax_value.set_ylabel(r"$S_2$")
+    ax_value.set_title("Fitted LCP value (black: free boundary)")
+    ax_value.set_aspect("equal")
 
-    ax_contact = fig.add_subplot(1, 2, 2)
     colors = ListedColormap(["#1b9e77", "#d95f02"])
     ax_contact.pcolormesh(
         X,

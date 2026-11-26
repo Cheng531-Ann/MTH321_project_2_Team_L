@@ -225,14 +225,21 @@ def _system_matrix(op: GridOperator) -> sp.csr_matrix:
 def solve_lcp(
     op: GridOperator,
     tol: float = 1e-12,
+    lcp_tol: float = 5e-10,
     max_iter: int = 10_000,
 ) -> tuple[np.ndarray, int, float]:
     """Solve the discrete LCP ``min(A V - rhs, V - psi) = 0``.
 
     The iteration starts from ``V = psi``.  Active rows are those with
     ``V <= psi + 1e-10``; a row is released when its full-operator residual is
-    negative.  The stopping rule is ``max|dV| < tol`` together with a stable
-    active set.
+    negative.  The stopping rule uses the complementarity residual
+    ``||min(A V - rhs, V - psi)||_inf < lcp_tol`` together with a stable
+    active set.  On strongly graded meshes the absolute residual can reach a
+    floating-point floor because the operator rows have large magnitude and
+    their terms cancel.  We therefore also accept residuals below a
+    machine-precision floor scaled by the largest row action; this does not
+    relax the criterion for normally scaled problems.  The iterate change is
+    retained only as a diagnostic.
     """
     _assert_m_matrix(op)
 
@@ -290,12 +297,21 @@ def solve_lcp(
         V[-1] = op.V_right
 
         residual = float(np.max(np.abs(V - V_old)))
-        if residual < tol and policy_is_stable:
+        a_h, b_h = lcp_residuals(op, V)
+        complementarity = float(np.max(np.abs(np.minimum(a_h, b_h))))
+        effective_lcp_tol = max(lcp_tol, lcp_roundoff_floor(op, V))
+        if (
+            residual < tol
+            and complementarity < effective_lcp_tol
+            and policy_is_stable
+        ):
             break
     else:
         raise RuntimeError(
             f"policy iteration did not converge in {max_iter} iterations "
-            f"(last residual={residual:.3e})"
+            f"(last update={residual:.3e}, "
+            f"LCP residual={complementarity:.3e}, "
+            f"effective tolerance={effective_lcp_tol:.3e})"
         )
 
     return V, iterations, residual
@@ -313,6 +329,23 @@ def lcp_residuals(
         a_h[:-1] += op.upper[:-1] * V_int[1:]
     b_h = V_int - op.psi[1:-1]
     return a_h, b_h
+
+
+def lcp_roundoff_floor(op: GridOperator, V: np.ndarray) -> float:
+    """Return a scale-aware floor for the LCP complementarity residual.
+
+    Evaluating a large stencil on a strongly graded mesh loses several digits
+    to cancellation even when the computed solution is accurate to working
+    precision.  Scaling by the largest absolute row action prevents that
+    roundoff from being mistaken for a failed policy iteration.
+    """
+    V_int = V[1:-1]
+    magnitude = np.abs(op.diag * V_int) + np.abs(op.rhs)
+    if V_int.size > 1:
+        magnitude[1:] += np.abs(op.lower[1:] * V_int[:-1])
+        magnitude[:-1] += np.abs(op.upper[:-1] * V_int[1:])
+    scale = max(1.0, float(np.max(magnitude)))
+    return 64.0 * np.finfo(float).eps * scale
 
 
 def extract_free_boundary(
@@ -412,6 +445,7 @@ def solve_perpetual_american_put(
     S_max: float = 2400.0,
     V_right: float = 0.0,
     tol: float = 1e-12,
+    lcp_tol: float = 5e-10,
     max_iter: int = 10_000,
 ) -> LCPResult:
     """Solve the perpetual American put LCP with exponential fitting.
@@ -428,7 +462,12 @@ def solve_perpetual_american_put(
         S_max=S_max,
         V_right=V_right,
     )
-    V, iterations, residual = solve_lcp(op, tol=tol, max_iter=max_iter)
+    V, iterations, residual = solve_lcp(
+        op,
+        tol=tol,
+        lcp_tol=lcp_tol,
+        max_iter=max_iter,
+    )
     diagnostics = compute_lcp_diagnostics(op, V)
 
     V_exact = exact_perpetual_put(op.S, K=K, r=r, q=q, sigma=sigma)

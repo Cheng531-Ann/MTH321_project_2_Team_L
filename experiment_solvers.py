@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import math
+from pathlib import Path
 import time
 
 import numpy as np
@@ -25,6 +26,7 @@ TOL = 1e-10
 OMEGA = 1.2
 RESIDUAL_CHECK_INTERVAL = 100
 TOLERANCES = (1e-4, 1e-6, 1e-8, 1e-10)
+SOLVER_CSV = Path(__file__).resolve().with_name("solver_comparison.csv")
 
 
 def lcp_residual_inf(
@@ -148,6 +150,7 @@ def benchmark(
         sigma=sigma,
         S_max=S_max,
         tol=tol,
+        lcp_tol=tol,
     )
     policy_time = time.time() - start
 
@@ -296,8 +299,46 @@ def write_tolerance_sweep(
         writer.writerows(rows)
 
 
+def write_solver_comparison(
+    data: dict[str, float | int],
+    path: Path = SOLVER_CSV,
+) -> None:
+    """Write the single benchmark record used by the table and figure."""
+    fields = (
+        "N",
+        "policy_iterations",
+        "policy_time",
+        "policy_update",
+        "policy_lcp_residual",
+        "psor_iterations",
+        "psor_time",
+        "psor_update",
+        "psor_lcp_residual",
+        "solution_difference",
+    )
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerow(
+            {
+                "N": data["N"],
+                "policy_iterations": data["policy_iterations"],
+                "policy_time": f"{float(data['policy_time']):.9e}",
+                "policy_update": f"{float(data['policy_residual']):.9e}",
+                "policy_lcp_residual": f"{float(data['policy_lcp_residual']):.9e}",
+                "psor_iterations": data["psor_iterations"],
+                "psor_time": f"{float(data['psor_time']):.9e}",
+                "psor_update": f"{float(data['psor_change']):.9e}",
+                "psor_lcp_residual": f"{float(data['psor_lcp_residual']):.9e}",
+                "solution_difference": f"{float(data['solution_difference']):.9e}",
+            }
+        )
+    print(f"Wrote {path.name}")
+
+
 def main() -> dict[str, float | int]:
     data = benchmark()
+    write_solver_comparison(data)
     sweep = tolerance_sweep()
     write_tolerance_sweep(sweep)
 

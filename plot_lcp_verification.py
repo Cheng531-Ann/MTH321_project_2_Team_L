@@ -47,7 +47,7 @@ def main() -> None:
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
 
-    axes[0].plot(S_int, b_h, color="blue", linewidth=1.6)
+    axes[0].plot(S_int, b_h, color="#6BAED6", linewidth=1.6)
     axes[0].axvline(
         result.S_free,
         color="red",

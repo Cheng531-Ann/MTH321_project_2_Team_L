@@ -391,67 +391,57 @@ def adjoint_sensitivity(
 def plot_advanced_results(
     adaptive: list[dict[str, float | str]],
     robin: list[dict[str, float]],
-    adjoint: list[dict[str, float | str]],
 ) -> Path:
-    '''Create the four-panel summary figure.'''
+    '''Create the three-panel adaptive and far-field summary figure.'''
     output = Path(__file__).resolve().parent / 'advanced_methods.png'
-    fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.4))
+    fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.0))
 
     N_plot = 2400
     center = exact_free_boundary()
     S_uniform = boundary_aligned_grid(N_plot, center, S_MAX)
     S_clustered = clustered_grid(N_plot, center, S_MAX, strength=16.0, width=15.0)
-    axes[0, 0].plot(S_clustered[:-1], np.diff(S_clustered), color='tab:red', label='clustered')
-    axes[0, 0].plot(S_uniform[:-1], np.diff(S_uniform), color='tab:blue', label='uniform')
-    axes[0, 0].axvline(center, color='black', linestyle='--', linewidth=1.0)
-    axes[0, 0].set_xlim(0.0, 180.0)
-    axes[0, 0].set_yscale('log')
-    axes[0, 0].set_xlabel('Stock price S')
-    axes[0, 0].set_ylabel('Local mesh spacing')
-    axes[0, 0].set_title('(a) Grid clustering')
-    axes[0, 0].legend()
+    axes[0].plot(S_clustered[:-1], np.diff(S_clustered), color='tab:red', label='clustered')
+    axes[0].plot(S_uniform[:-1], np.diff(S_uniform), color='tab:blue', label='uniform')
+    axes[0].axvline(center, color='black', linestyle='--', linewidth=1.0)
+    axes[0].set_xlim(0.0, 180.0)
+    axes[0].set_yscale('log')
+    axes[0].set_xlabel('Stock price S')
+    axes[0].set_ylabel('Local mesh spacing')
+    axes[0].set_title('(a) Grid clustering')
+    axes[0].legend()
 
     for grid_name, color in (('uniform', 'tab:blue'), ('clustered', 'tab:red')):
         rows = [row for row in adaptive if row['grid'] == grid_name]
-        axes[0, 1].loglog(
+        axes[1].loglog(
             [row['N'] for row in rows],
             [row['max_error'] for row in rows],
             marker='o',
             color=color,
             label=grid_name,
         )
-    axes[0, 1].set_xlabel('N')
-    axes[0, 1].set_ylabel(r'Maximum value error')
-    axes[0, 1].set_title('(b) Adaptive value error')
-    axes[0, 1].legend()
+    axes[1].set_xlabel('N')
+    axes[1].set_ylabel(r'Maximum value error')
+    axes[1].set_title('(b) Adaptive value error')
+    axes[1].legend()
 
-    axes[1, 0].semilogy(
+    axes[2].semilogy(
         [row['s_max'] for row in robin],
         [row['dirichlet_error'] for row in robin],
         marker='o',
         color='tab:blue',
         label='V(S_max)=0',
     )
-    axes[1, 0].semilogy(
+    axes[2].semilogy(
         [row['s_max'] for row in robin],
         [row['robin_error'] for row in robin],
         marker='s',
         color='tab:red',
         label='asymptotic Robin',
     )
-    axes[1, 0].set_xlabel(r'$S_{\max}$')
-    axes[1, 0].set_ylabel(r'Error in V(80)')
-    axes[1, 0].set_title('(c) Far-field closure')
-    axes[1, 0].legend()
-
-    labels = [str(row['parameter']) for row in adjoint]
-    relative = [
-        100.0 * float(row['adjoint_error']) / abs(float(row['exact']))
-        for row in adjoint
-    ]
-    axes[1, 1].bar(labels, relative, color='tab:green')
-    axes[1, 1].set_ylabel('Relative error (%)')
-    axes[1, 1].set_title('(d) Adjoint sensitivity accuracy')
+    axes[2].set_xlabel(r'$S_{\max}$')
+    axes[2].set_ylabel(r'Error in V(80)')
+    axes[2].set_title('(c) Far-field closure')
+    axes[2].legend()
 
     fig.tight_layout()
     fig.savefig(output, dpi=200, bbox_inches='tight')
@@ -485,7 +475,7 @@ def main() -> None:
     for row in adjoint:
         print(row)
     print()
-    print(f'Saved {plot_advanced_results(adaptive, robin, adjoint)}')
+    print(f'Saved {plot_advanced_results(adaptive, robin)}')
     print(f'Saved {adaptive_file.name}')
 
 
