@@ -152,15 +152,20 @@ the continuous boundary on a coarse mesh; this is reported explicitly.
 
 ## How to Run
 
-From `Final_Submission/`, reproduce every experiment and figure with:
+From this directory, reproduce every experiment and figure with:
+
+```bash
+python run_all.py
+```
+
+If running from the parent submission folder, use:
 
 ```bash
 python 02_Code/run_all.py
 ```
 
-Equivalently, run `python run_all.py` from inside `02_Code/`.
-After a successful run, figures and numerical tables are copied to
-`03_Figures/` and `04_Data/` so the report always uses the same record.
+When a sibling `01_Report/` directory is present, the runner also copies the
+figures and numerical tables to `03_Figures/` and `04_Data/`.
 
 The runner uses Matplotlib's noninteractive `Agg` backend so figures are saved
 without blocking the sequence. To display an individual figure window, run its
